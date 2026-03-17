@@ -89,10 +89,10 @@ export default function GraphView() {
       };
     });
 
-    const diffNodeIds = new Set([...changedNodeIds, ...affectedNodeIds]);
+    const diffNodeIds = diffMode ? new Set([...changedNodeIds, ...affectedNodeIds]) : new Set<string>();
     const flowEdges: Edge[] = filteredGraphEdges.map((edge, i) => {
-      const sourceInDiff = diffNodeIds.has(edge.source);
-      const targetInDiff = diffNodeIds.has(edge.target);
+      const sourceInDiff = diffMode && diffNodeIds.has(edge.source);
+      const targetInDiff = diffMode && diffNodeIds.has(edge.target);
       const isImpacted = diffMode && (sourceInDiff || targetInDiff);
 
       return {
