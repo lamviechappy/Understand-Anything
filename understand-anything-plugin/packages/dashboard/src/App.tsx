@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { validateGraph } from "@understand-anything/core/schema";
 import { useDashboardStore } from "./store";
 import GraphView from "./components/GraphView";
@@ -10,6 +10,9 @@ import DiffToggle from "./components/DiffToggle";
 import LearnPanel from "./components/LearnPanel";
 import PersonaSelector from "./components/PersonaSelector";
 import ProjectOverview from "./components/ProjectOverview";
+import KeyboardShortcutsHelp from "./components/KeyboardShortcutsHelp";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import type { KeyboardShortcut } from "./hooks/useKeyboardShortcuts";
 
 function App() {
   const graph = useDashboardStore((s) => s.graph);
@@ -20,7 +23,106 @@ function App() {
   const codeViewerOpen = useDashboardStore((s) => s.codeViewerOpen);
   const closeCodeViewer = useDashboardStore((s) => s.closeCodeViewer);
   const setDiffOverlay = useDashboardStore((s) => s.setDiffOverlay);
+  const selectNode = useDashboardStore((s) => s.selectNode);
+  const toggleLayers = useDashboardStore((s) => s.toggleLayers);
+  const toggleDiffMode = useDashboardStore((s) => s.toggleDiffMode);
+  const stopTour = useDashboardStore((s) => s.stopTour);
+  const nextTourStep = useDashboardStore((s) => s.nextTourStep);
+  const prevTourStep = useDashboardStore((s) => s.prevTourStep);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+
+  // Define keyboard shortcuts
+  const shortcuts = useMemo<KeyboardShortcut[]>(
+    () => [
+      // Help
+      {
+        key: "?",
+        shiftKey: true,
+        description: "Show keyboard shortcuts",
+        action: () => setShowKeyboardHelp((prev) => !prev),
+        category: "General",
+      },
+      // Navigation
+      {
+        key: "Escape",
+        description: "Close panels and modals",
+        action: () => {
+          if (showKeyboardHelp) {
+            setShowKeyboardHelp(false);
+          } else if (codeViewerOpen) {
+            closeCodeViewer();
+          } else if (selectedNodeId) {
+            selectNode(null);
+          } else if (tourActive) {
+            stopTour();
+          }
+        },
+        category: "Navigation",
+      },
+      {
+        key: "/",
+        description: "Focus search bar",
+        action: () => {
+          const searchInput = document.querySelector<HTMLInputElement>(
+            'input[placeholder*="Search"]'
+          );
+          searchInput?.focus();
+        },
+        category: "Navigation",
+      },
+      // Tour controls
+      {
+        key: "ArrowRight",
+        description: "Next tour step",
+        action: () => {
+          if (tourActive) {
+            nextTourStep();
+          }
+        },
+        category: "Tour",
+      },
+      {
+        key: "ArrowLeft",
+        description: "Previous tour step",
+        action: () => {
+          if (tourActive) {
+            prevTourStep();
+          }
+        },
+        category: "Tour",
+      },
+      // View toggles
+      {
+        key: "l",
+        description: "Toggle layer visualization",
+        action: toggleLayers,
+        category: "View",
+      },
+      {
+        key: "d",
+        description: "Toggle diff mode",
+        action: toggleDiffMode,
+        category: "View",
+      },
+    ],
+    [
+      showKeyboardHelp,
+      codeViewerOpen,
+      selectedNodeId,
+      tourActive,
+      closeCodeViewer,
+      selectNode,
+      stopTour,
+      nextTourStep,
+      prevTourStep,
+      toggleLayers,
+      toggleDiffMode,
+    ]
+  );
+
+  // Register keyboard shortcuts
+  useKeyboardShortcuts(shortcuts, !showKeyboardHelp);
 
   useEffect(() => {
     fetch("/knowledge-graph.json")
@@ -91,6 +193,25 @@ function App() {
         <div className="flex items-center gap-4">
           <DiffToggle />
           <LayerLegend />
+          <button
+            onClick={() => setShowKeyboardHelp(true)}
+            className="text-text-muted hover:text-gold transition-colors"
+            title="Keyboard shortcuts (Shift + ?)"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -135,6 +256,14 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* Keyboard shortcuts help modal */}
+      {showKeyboardHelp && (
+        <KeyboardShortcutsHelp
+          shortcuts={shortcuts}
+          onClose={() => setShowKeyboardHelp(false)}
+        />
+      )}
     </div>
   );
 }
